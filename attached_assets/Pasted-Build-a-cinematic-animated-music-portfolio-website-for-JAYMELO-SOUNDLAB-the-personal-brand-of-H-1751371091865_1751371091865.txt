@@ -1,0 +1,76 @@
+Build a cinematic, animated music portfolio website for "JAYMELO SOUNDLAB" — the personal brand of Harsha Jayanth — using React, Next.js, Framer Motion, and Tailwind CSS.
+
+✨ Design Inspiration & Goals:
+Inspired by: Refined – Framer Template
+
+Purpose: To showcase Harsha Jayanth’s 5+ years of music production (15+ short films and web series)
+
+Feel: Dark, elegant, cinematic, and interactive
+
+🎨 UI Features & Pages:
+1. Hero Section
+Full-screen background image of Harsha Jayanth
+
+Animated intro headline with Framer Motion text effects
+
+Call-to-action buttons (e.g., "Book Session", "Explore Projects")
+
+Add subtle dynamic music waveform animation (like fluid or pulse wave synced to scroll or hover)
+
+2. Music Parallax Effects
+Integrate scroll-based parallax for images and text across sections
+
+Use Framer Motion for scroll reveals (fade-up, staggered entrance, zoom)
+
+3. Portfolio Grid
+Responsive layout of music projects with:
+
+Cover image
+
+Title + subtitle (genre or type)
+
+Short description
+
+Animate on hover (scale/shine) and entrance (slide-fade)
+
+4. About Me Section
+Personal story of Harsha Jayanth with subtle scroll animations
+
+Focus on minimalist typography and dark clean visuals
+
+5. Dynamic Wave Element
+Add an animated music wave background or section divider
+
+Motion-reactive waveforms or looping SVG/Canvas-based visuals
+
+6. Booking Form
+Name, email, service type (dropdown), message
+
+Beautiful, glowing inputs with animated feedback (on focus, submit)
+
+Framer Motion submit animation with success toast or thank-you overlay
+
+7. Page Transitions
+Smooth fade, slide, or scale transitions between pages
+
+🛠️ Tech Stack:
+React with Next.js (for routing, performance, SEO)
+
+Framer Motion (for scroll-triggered and entrance animations)
+
+Tailwind CSS (for responsive and utility-based styling)
+
+EmailJS or mock backend for form submission
+
+Optional: react-scroll-parallax or locomotive scroll
+
+📌 Brand Identity:
+Brand Name: JAYMELO SOUNDLAB
+
+Founder: Harsha Jayanth
+
+Fonts: Inter, Satoshi, or Plus Jakarta Sans
+
+Palette: True black (#000), white accents, neon/muted highlight colors (deep purple, cyan, etc.)
+
+Style: Refined, bold, futuristic, yet minimal
