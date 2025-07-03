@@ -2,7 +2,7 @@ import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Testimonial } from "@shared/schema";
-import axios from "axios";
+import { getFeaturedTestimonials } from "../lib/data";
 
 export default function TestimonialsSection() {
   const ref = useRef(null);
@@ -15,10 +15,7 @@ export default function TestimonialsSection() {
     error,
   } = useQuery<Testimonial[]>({
     queryKey: ["testimonials", "featured"],
-    queryFn: async () => {
-      const res = await axios.get("/api/testimonials/featured");
-      return res.data ?? [];
-    },
+    queryFn: getFeaturedTestimonials
   });
 
   const containerVariants = {

@@ -22,7 +22,7 @@ export async function sendEmail(subject: string, html: string) {
     html,
   });
 
-  console.log("Email sent:", info.messageId);
+  //console.log("Email sent:", info.messageId);
 }
 
 
@@ -44,5 +44,5 @@ export async function replyEmail(subject: string, html: string, to?: string) {
     html,
   });
 
-  console.log(`✅ Email sent to ${to || process.env.EMAIL_TO}:`, info.messageId);
+  //console.log(`✅ Email sent to ${to || process.env.EMAIL_TO}:`, info.messageId);
 }

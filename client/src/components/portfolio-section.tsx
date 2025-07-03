@@ -3,13 +3,15 @@ import { useInView } from "framer-motion";
 import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Project } from "@shared/schema";
+import { getProjects } from "../lib/data"; 
 
 export default function PortfolioSection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-100px" });
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
-    queryKey: ['/api/projects'],
+     queryKey: ["projects"],
+     queryFn: getProjects,
   });
 
   const containerVariants = {

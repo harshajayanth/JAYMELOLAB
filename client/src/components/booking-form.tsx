@@ -1,10 +1,8 @@
 import { motion } from "framer-motion";
 import { useInView } from "framer-motion";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { insertContactSubmissionSchema, type InsertContactSubmission } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -13,52 +11,66 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
+type ContactFormData = {
+  name: string;
+  email: string;
+  serviceType: string;
+  message: string;
+};
+
 export default function BookingForm() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-100px" });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const form = useForm<InsertContactSubmission>({
-    resolver: zodResolver(insertContactSubmissionSchema),
+  const form = useForm<ContactFormData>({
     defaultValues: {
       name: "",
       email: "",
       serviceType: "",
-      message: ""
-    }
+      message: "",
+    },
   });
 
   const submitMutation = useMutation({
-    mutationFn: async (data: InsertContactSubmission) => {
-      return apiRequest('POST', '/api/contact', data);
+    mutationFn: async (data: ContactFormData) => {
+      return apiRequest("POST", "/api/contact", data);
     },
     onSuccess: () => {
       toast({
         title: "Message Sent!",
-        description: "Thank you for reaching out.Please Check your Email.",
+        description: "Thank you for reaching out. Please check your email.",
       });
       form.reset();
-      queryClient.invalidateQueries({ queryKey: ['/api/contact'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contact"] });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
-      console.error('Form submission error:', error);
-    }
+    },
   });
 
-  const onSubmit = (data: InsertContactSubmission) => {
+  const onSubmit = (data: ContactFormData) => {
+    if (!data.name || !data.email || !data.serviceType || !data.message) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all fields before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     submitMutation.mutate(data);
   };
 
   return (
     <section id="contact" className="py-20 px-6">
       <div className="max-w-4xl mx-auto">
-        <motion.div 
+        <motion.div
           className="text-center mb-16"
           initial={{ opacity: 0, y: 30 }}
           animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
@@ -69,8 +81,8 @@ export default function BookingForm() {
             Let's discuss your project and bring your vision to life with compelling music that elevates your storytelling.
           </p>
         </motion.div>
-        
-        <motion.div 
+
+        <motion.div
           ref={ref}
           className="glass rounded-3xl p-8 md:p-12"
           initial={{ opacity: 0, y: 50 }}
@@ -85,46 +97,46 @@ export default function BookingForm() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-sm font-medium">Name</FormLabel>
+                      <FormLabel>Name</FormLabel>
                       <FormControl>
-                        <Input 
+                        <Input
                           {...field}
                           placeholder="Your full name"
                           className="bg-white/5 border-white/10 text-white placeholder-gray-400 glow-input"
+                          required
                         />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-sm font-medium">Email</FormLabel>
+                      <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input 
+                        <Input
                           {...field}
                           type="email"
                           placeholder="your@email.com"
                           className="bg-white/5 border-white/10 text-white placeholder-gray-400 glow-input"
+                          required
                         />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={form.control}
                 name="serviceType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium">Service Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel>Service Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger className="bg-white/5 border-white/10 text-white glow-input">
                           <SelectValue placeholder="Select a service" />
@@ -137,36 +149,32 @@ export default function BookingForm() {
                         <SelectItem value="consultation">Music Consultation</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="message"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium">Project Details</FormLabel>
+                    <FormLabel>Project Details</FormLabel>
                     <FormControl>
-                      <Textarea 
+                      <Textarea
                         {...field}
                         rows={6}
                         placeholder="Tell me about your project, timeline, and vision..."
                         className="bg-white/5 border-white/10 text-white placeholder-gray-400 glow-input resize-none"
+                        required
                       />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <div className="text-center">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Button 
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
                     type="submit"
                     disabled={submitMutation.isPending}
                     className="px-8 py-4 bg-gradient-to-r from-electric-purple to-neon-cyan hover:from-purple-600 hover:to-cyan-500 rounded-full font-semibold text-lg animate-glow"
