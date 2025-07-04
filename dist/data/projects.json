@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1,
+    "title": "The Silent Echo",
+    "category": "Thriller Short Film",
+    "description": "Haunting orchestral score...",
+    "imageUrl": "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+    "audioUrl": null,
+    "tags": ["orchestral", "thriller", "piano", "strings"],
+    "featured": true,
+    "createdAt": "2025-07-03T13:37:27.301Z"
+  },
+  {
+    "id": 2,
+    "title": "Urban Chronicles",
+    "category": "Web Series",
+    "description": "Contemporary electronic soundtrack...",
+    "imageUrl": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+    "audioUrl": null,
+    "tags": ["electronic", "urban", "drama", "contemporary"],
+    "featured": true,
+    "createdAt": "2025-07-03T13:37:27.301Z"
+  },
+  {
+    "id": 3,
+    "title": "Mindscape",
+    "category": "Psychological Drama",
+    "description": "Experimental ambient score...",
+    "imageUrl": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+    "audioUrl": null,
+    "tags": ["ambient", "experimental", "psychological", "synthesized"],
+    "featured": true,
+    "createdAt": "2025-07-03T13:37:27.301Z"
+  }
+]
