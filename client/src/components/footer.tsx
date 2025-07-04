@@ -17,7 +17,7 @@ const socialLinks = [
   {
     icon: <FaYoutube size={20} />,
     href: "https://youtube.com/@jayanthmelodies9920?si=tHzvJAYby4SclWp_",
-    label: "Twitter",
+    label: "Youtube",
   },
   {
     icon: <FaSoundcloud size={20} />,

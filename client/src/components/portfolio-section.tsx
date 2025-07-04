@@ -1,35 +1,112 @@
 import { motion } from "framer-motion";
 import { useInView } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Project } from "@shared/schema";
-import { getProjects } from "../lib/data"; 
+import { getProjects } from "../lib/data";
+
+function getThumbnailFromUrl(url: string | null, fallback: string): string {
+  if (!url) return fallback;
+  const cleanedUrl = url.split("?")[0];
+  const ytMatch = cleanedUrl.match(
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^/?&]+)/
+  );
+  return ytMatch
+    ? `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`
+    : fallback;
+}
+
+function getYouTubeId(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "youtu.be") return parsed.pathname.slice(1);
+    if (parsed.hostname.includes("youtube.com"))
+      return parsed.searchParams.get("v");
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+declare global {
+  interface Window {
+    backgroundMusic: HTMLAudioElement | null;
+    videoIsPlaying?: boolean;
+  }
+}
 
 export default function PortfolioSection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-100px" });
 
+  const [playingVideoId, setPlayingVideoId] = useState<number | null>(null);
+  const [videoEnded, setVideoEnded] = useState<{ [id: number]: boolean }>({});
+
   const { data: projects = [], isLoading } = useQuery<Project[]>({
-     queryKey: ["projects"],
-     queryFn: getProjects,
+    queryKey: ["projects"],
+    queryFn: getProjects,
   });
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 },
-    },
-  };
+  // 👇 Add this new effect here
+useEffect(() => {
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (!entry.isIntersecting) {
+        setPlayingVideoId(null);
+        setVideoEnded({});
+        window.videoIsPlaying = false;
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 50 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.6 },
+        // 🔥 Dispatch to notify App.tsx to re-enable mute button
+        window.dispatchEvent(new CustomEvent("video-playing", { detail: false }));
+
+        if (window.backgroundMusic && window.backgroundMusic.paused) {
+          window.backgroundMusic.play().catch(console.warn);
+        }
+      }
     },
+    { threshold: 0.1 }
+  );
+
+  const node = ref.current;
+  if (node) observer.observe(node);
+
+  return () => {
+    if (node) observer.unobserve(node);
   };
+}, []);
+
+
+const handlePlay = (projectId: number) => {
+  setPlayingVideoId(projectId);
+  setVideoEnded((prev) => ({ ...prev, [projectId]: false }));
+  window.videoIsPlaying = true;
+
+  if (window.backgroundMusic && !window.backgroundMusic.paused) {
+    window.backgroundMusic.pause();
+  }
+
+  // 🔥 Notify App
+  window.dispatchEvent(new CustomEvent("video-playing", { detail: true }));
+
+  setTimeout(() => {
+    if (playingVideoId === projectId) handleVideoEnd(projectId);
+  }, 60000);
+};
+
+const handleVideoEnd = (projectId: number) => {
+  setVideoEnded((prev) => ({ ...prev, [projectId]: true }));
+  setPlayingVideoId(null);
+  window.videoIsPlaying = false;
+
+  if (window.backgroundMusic) {
+    window.backgroundMusic.play().catch(console.warn);
+  }
+
+  // 🔥 Notify App
+  window.dispatchEvent(new CustomEvent("video-playing", { detail: false }));
+};
+
+
 
   return (
     <section id="portfolio" className="py-20 px-6 bg-darker-gray">
@@ -46,103 +123,104 @@ export default function PortfolioSection() {
               Featured projects from film scores to web series soundtracks
             </p>
           </div>
-          <motion.a
-            href="#"
-            className="hidden md:flex items-center space-x-2 text-electric-purple hover:text-purple-400 transition-colors duration-300"
-            whileHover={{ scale: 1.05 }}
-          >
-            <span>See all</span>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </motion.a>
         </motion.div>
 
         <motion.div
           ref={ref}
           className="grid md:grid-cols-2 lg:grid-cols-3 gap-8"
-          variants={containerVariants}
+          variants={{
+            hidden: { opacity: 0 },
+            visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
+          }}
           initial="hidden"
           animate={isInView ? "visible" : "hidden"}
         >
-          {isLoading
-            ? Array.from({ length: 6 }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  variants={itemVariants}
-                  className="glass rounded-2xl p-4 animate-pulse space-y-4"
-                >
-                  <div className="w-full h-64 bg-white/10 rounded-lg"></div>
-                  <div className="p-4 space-y-3">
-                    <div className="h-5 w-3/4 bg-white/10 rounded"></div>
-                    <div className="h-4 w-1/3 bg-white/10 rounded"></div>
-                    <div className="h-4 w-full bg-white/10 rounded"></div>
-                    <div className="h-4 w-5/6 bg-white/10 rounded"></div>
-                  </div>
-                </motion.div>
-              ))
-            : projects.map((project) => (
-                <motion.div
-                  key={project.id}
-                  variants={itemVariants}
-                  className="project-card group"
-                  whileHover={{ scale: 1.02 }}
-                >
-                  <div className="glass rounded-2xl overflow-hidden">
-                    <div className="relative overflow-hidden">
-                      <img
-                        src={project.imageUrl}
-                        alt={project.title}
-                        className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
-                        onError={(e) => {
-                          const target = e.currentTarget;
-                          if (!target.dataset.fallback) {
-                            target.dataset.fallback = "true";
-                            target.src =
-                              "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600";
-                          }
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <div className="absolute bottom-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <motion.button
-                          className="px-4 py-2 bg-electric-purple rounded-full text-sm font-medium hover:bg-purple-600 transition-colors duration-300"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <svg className="w-4 h-4 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path
-                              fillRule="evenodd"
-                              d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                          Listen
-                        </motion.button>
-                      </div>
-                    </div>
-                    <div className="p-6">
-                      <h3 className="text-xl font-semibold mb-2">{project.title}</h3>
-                      <p className="text-electric-purple text-sm font-medium mb-3">{project.category}</p>
-                      <p className="text-gray-400 text-sm leading-relaxed">{project.description}</p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-        </motion.div>
+          {projects.map((project) => {
+            const isYouTube = project.url?.includes("youtu");
+            const isMP3 = project.url?.includes(".mp3");
+            const ytId = getYouTubeId(project.url ?? "");
 
-        <div className="text-center mt-12">
-          <motion.a
-            href="#"
-            className="md:hidden inline-flex items-center space-x-2 text-electric-purple hover:text-purple-400 transition-colors duration-300"
-            whileHover={{ scale: 1.05 }}
-          >
-            <span>See all projects</span>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </motion.a>
-        </div>
+            const isPlaying =
+              playingVideoId === project.id && !videoEnded[project.id];
+
+            return (
+              <motion.div
+                key={project.id}
+                className="project-card group"
+                variants={{
+                  hidden: { opacity: 0, y: 50 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
+                }}
+              >
+                <div className="glass rounded-2xl overflow-hidden relative">
+                  {/* YouTube iframe */}
+                  {isYouTube && isPlaying ? (
+                    <iframe
+                      className="w-full h-64"
+                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1`}
+                      title="YouTube Video"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      onLoad={() => {
+                        // fallback in case onEnd isn't triggered
+                        setTimeout(() => handleVideoEnd(project.id), 60000);
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <img
+                        src={getThumbnailFromUrl(project.url, project.imageUrl)}
+                        alt={project.title}
+                        className="w-full h-64 object-cover"
+                      />
+
+                      {/* Play Button */}
+                      {isYouTube && playingVideoId !== project.id && (
+                        <motion.button
+                          onClick={() => handlePlay(project.id)}
+                          className="absolute bottom-4 left-4 z-10 px-3 py-1.5 bg-electric-purple text-white rounded-full"
+                          whileHover={{ scale: 1.05 }}
+                        >
+                          <span className="material-icons text-sm align-middle">
+                            play_arrow
+                          </span>{" "}
+                          1 Min
+                        </motion.button>
+                      )}
+
+                      {/* MP3 Listen Button */}
+                      {isMP3 && (
+                        <motion.a
+                          href={project.url ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute bottom-4 left-4 z-10 px-3 py-1.5 bg-electric-purple text-white rounded-full"
+                          whileHover={{ scale: 1.05 }}
+                        >
+                          <span className="material-icons text-sm align-middle">
+                            volume_up
+                          </span>{" "}
+                          Listen
+                        </motion.a>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold mb-2">
+                    {project.title}
+                  </h3>
+                  <p className="text-electric-purple text-sm font-medium mb-3">
+                    {project.category}
+                  </p>
+                  <p className="text-gray-400 text-sm">{project.description}</p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </motion.div>
       </div>
     </section>
   );
