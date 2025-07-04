@@ -24,9 +24,5 @@
       "src": "/(.*)",
       "dest": "/dist/index.html"
     }
-  ],
-  "cleanUrls": true,
-  "static": {
-    "directory": "dist"
-  }
+  ]
 }
