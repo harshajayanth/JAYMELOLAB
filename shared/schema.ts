@@ -14,7 +14,7 @@ export const projects = pgTable("projects", {
   category: text("category").notNull(),
   description: text("description").notNull(),
   imageUrl: text("image_url").notNull(),
-  audioUrl: text("audio_url"),
+  url: text("url"),
   tags: text("tags").array(),
   featured: boolean("featured").default(false),
   createdAt: timestamp("created_at").defaultNow(),

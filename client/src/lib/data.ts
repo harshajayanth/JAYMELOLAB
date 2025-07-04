@@ -14,7 +14,7 @@ export interface Project {
   category: string;
   description: string;
   imageUrl: string;
-  audioUrl: string | null;
+  url: string | null;
   tags: string[] | null;
   featured: boolean | null;
   createdAt: Date | null;

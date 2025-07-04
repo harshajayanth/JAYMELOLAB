@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1,
+    "title": "Threesome",
+    "category": "Romantic Web Series",
+    "description": "Engaging Romcom Music",
+    "imageUrl": "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+    "url": "https://youtu.be/7PoIQa64Naw?si=G9me2kNptOX1xJGB",
+    "tags": ["Romance", "Comedy"],
+    "featured": true,
+    "createdAt": "2025-07-03T13:37:27.301Z"
+  },
+  {
+    "id": 2,
+    "title": "4 Composers 4 Songs MashUp",
+    "category": "Cover Song",
+    "description": "Piano Cover MashUp",
+    "imageUrl": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+    "url": "https://youtu.be/GE2YzerCIL8?si=uRIzaq9W09-Vg5QG",
+    "tags": ["love", "drama"],
+    "featured": true,
+    "createdAt": "2025-07-03T13:37:27.301Z"
+  },
+  {
+    "id": 3,
+    "title": "Mindscape",
+    "category": "Psychological Drama",
+    "description": "Experimental ambient score...",
+    "imageUrl": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+    "url": "https://example.com/audio/mindscape.mp3",
+    "tags": ["ambient", "experimental", "psychological", "synthesized"],
+    "featured": true,
+    "createdAt": "2025-07-03T13:37:27.301Z"
+  }
+]

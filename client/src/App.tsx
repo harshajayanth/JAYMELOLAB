@@ -7,7 +7,14 @@ import Home from "@/pages/home";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// 💡 Intro screen with "DIVE IN" button
+declare global {
+  interface Window {
+    backgroundMusic: HTMLAudioElement | null;
+    videoIsPlaying?: boolean;
+  }
+}
+
+// 💡 Intro screen
 export function IntroScreen({ onEnter }: { onEnter: () => void }) {
   return (
     <motion.div
@@ -18,52 +25,39 @@ export function IntroScreen({ onEnter }: { onEnter: () => void }) {
     >
       <style>
         {`
-          /* From Uiverse.io by nima-mollazadeh */ 
-          .button {
-            position: relative;
-            text-decoration: none;
-            color: #fff;
-            background: linear-gradient(45deg, #0ce39a, #69007f, #fc0987);
-            padding: 14px 25px;
-            border-radius: 10px;
-            font-size: 1.25em;
-            cursor: pointer;
-            display: inline-block;
-          }
-
-          .button span {
-            position: relative;
-            z-index: 1;
-          }
-
-          .button::before {
-            content: "";
-            position: absolute;
-            inset: 1px;
-            background: #272727;
-            border-radius: 9px;
-            transition: 0.5s;
-          }
-
-          .button:hover::before {
-            opacity: 0.7;
-          }
-
-          .button::after {
-            content: "";
-            position: absolute;
-            inset: 0px;
-            background: linear-gradient(45deg, #0ce39a, #69007f, #fc0987);
-            border-radius: 9px;
-            transition: 0.5s;
-            opacity: 0;
-            filter: blur(20px);
-          }
-
-          .button:hover::after {
-            opacity: 1;
-          }
-        `}
+        .button {
+          position: relative;
+          text-decoration: none;
+          color: #fff;
+          background: linear-gradient(45deg, #0ce39a, #69007f, #fc0987);
+          padding: 14px 25px;
+          border-radius: 10px;
+          font-size: 1.25em;
+          cursor: pointer;
+          display: inline-block;
+        }
+        .button span { position: relative; z-index: 1; }
+        .button::before {
+          content: "";
+          position: absolute;
+          inset: 1px;
+          background: #272727;
+          border-radius: 9px;
+          transition: 0.5s;
+        }
+        .button:hover::before { opacity: 0.7; }
+        .button::after {
+          content: "";
+          position: absolute;
+          inset: 0px;
+          background: linear-gradient(45deg, #0ce39a, #69007f, #fc0987);
+          border-radius: 9px;
+          transition: 0.5s;
+          opacity: 0;
+          filter: blur(20px);
+        }
+        .button:hover::after { opacity: 1; }
+      `}
       </style>
 
       <div className="text-center space-y-8">
@@ -73,7 +67,7 @@ export function IntroScreen({ onEnter }: { onEnter: () => void }) {
           transition={{ duration: 1 }}
           className="text-4xl sm:text-6xl font-bold"
         >
-          Welcome to JAYMELO SOUNDLAB
+          Welcome
         </motion.h1>
 
         <motion.div
@@ -89,29 +83,69 @@ export function IntroScreen({ onEnter }: { onEnter: () => void }) {
   );
 }
 
-// 💡 App content with music + routing
+// 💡 Main App Content
 function AppContent() {
   const [isMuted, setMuted] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [videoIsPlaying, setVideoIsPlaying] = useState(false);
 
+  // Setup music
   useEffect(() => {
     const audio = new Audio("/audio/intro.mp3");
     audio.loop = true;
     audio.muted = false;
-    audioRef.current = audio;
+    window.backgroundMusic = audio;
+    audio.play().catch((err) => console.warn("Music play failed:", err));
 
-    audio
-      .play()
-      .catch((err) => console.warn("Music play failed:", err));
-
-    return () => audio.pause();
+    return () => {
+      audio.pause();
+      window.backgroundMusic = null;
+    };
   }, []);
 
+  // Listen to video-playing events from PortfolioSection
+  useEffect(() => {
+    const handleVideoState = (e: Event) => {
+      const custom = e as CustomEvent<boolean>;
+      const isPlaying = custom.detail;
+
+      setVideoIsPlaying(isPlaying);
+      window.videoIsPlaying = isPlaying;
+
+      if (!isPlaying && window.backgroundMusic && !window.backgroundMusic.muted) {
+        window.backgroundMusic.play().catch(console.warn);
+      }
+    };
+
+    window.addEventListener("video-playing", handleVideoState);
+    return () => {
+      window.removeEventListener("video-playing", handleVideoState);
+    };
+  }, []);
+
+  // Handle M key to toggle mute
+  useEffect(() => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "m" && !videoIsPlaying) {
+        toggleMute();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeydown);
+    return () => {
+      window.removeEventListener("keydown", handleKeydown);
+    };
+  }, [videoIsPlaying, isMuted]);
+
   const toggleMute = () => {
-    if (audioRef.current) {
-      const newMuted = !isMuted;
-      audioRef.current.muted = newMuted;
-      setMuted(newMuted);
+    const audio = window.backgroundMusic;
+    if (!audio) return;
+
+    const newMuted = !audio.muted;
+    audio.muted = newMuted;
+    setMuted(newMuted);
+
+    if (!newMuted) {
+      audio.play().catch(console.warn);
     }
   };
 
@@ -122,11 +156,20 @@ function AppContent() {
           {/* Mute/Unmute Button */}
           <button
             onClick={toggleMute}
-            className="fixed bottom-4 right-4 z-50 px-6 py-3 glass hover:bg-white/10 rounded-full font-semibold text-lg transition-all"
-            title={isMuted ? "Unmute" : "Mute"}
+            disabled={videoIsPlaying}
+            className={`fixed bottom-4 right-4 z-50 px-6 py-3 glass rounded-full font-semibold text-lg transition-all ${
+              videoIsPlaying ? "opacity-50 cursor-not-allowed" : "hover:bg-white/10"
+            }`}
+            title={
+              videoIsPlaying
+                ? "Disabled while video is playing"
+                : isMuted
+                ? "Unmute"
+                : "Mute"
+            }
           >
             <span className="material-icons">
-              {isMuted ? "music_off" : "music_note"}
+              {videoIsPlaying || isMuted ? "music_off" : "music_note"}
             </span>
           </button>
 
@@ -147,7 +190,9 @@ function App() {
 
   return (
     <>
-      <AnimatePresence>{!entered && <IntroScreen onEnter={() => setEntered(true)} />}</AnimatePresence>
+      <AnimatePresence>
+        {!entered && <IntroScreen onEnter={() => setEntered(true)} />}
+      </AnimatePresence>
       {entered && <AppContent />}
     </>
   );
