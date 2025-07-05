@@ -1,20 +1,21 @@
+// ✅ App.tsx
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/home";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 declare global {
   interface Window {
     backgroundMusic: HTMLAudioElement | null;
     videoIsPlaying?: boolean;
+    originalBackgroundMusic?: HTMLAudioElement | null;
   }
 }
 
-// 💡 Intro screen
 export function IntroScreen({ onEnter }: { onEnter: () => void }) {
   return (
     <motion.div
@@ -59,7 +60,6 @@ export function IntroScreen({ onEnter }: { onEnter: () => void }) {
         .button:hover::after { opacity: 1; }
       `}
       </style>
-
       <div className="text-center space-y-8">
         <motion.h1
           initial={{ opacity: 0, y: -50 }}
@@ -83,12 +83,10 @@ export function IntroScreen({ onEnter }: { onEnter: () => void }) {
   );
 }
 
-// 💡 Main App Content
 function AppContent() {
   const [isMuted, setMuted] = useState(false);
   const [videoIsPlaying, setVideoIsPlaying] = useState(false);
 
-  // Setup music
   useEffect(() => {
     const audio = new Audio("/audio/intro.mp3");
     audio.loop = true;
@@ -102,7 +100,6 @@ function AppContent() {
     };
   }, []);
 
-  // Listen to video-playing events from PortfolioSection
   useEffect(() => {
     const handleVideoState = (e: Event) => {
       const custom = e as CustomEvent<boolean>;
@@ -111,8 +108,21 @@ function AppContent() {
       setVideoIsPlaying(isPlaying);
       window.videoIsPlaying = isPlaying;
 
-      if (!isPlaying && window.backgroundMusic && !window.backgroundMusic.muted) {
-        window.backgroundMusic.play().catch(console.warn);
+      if (!isPlaying) {
+        if (
+          window.originalBackgroundMusic &&
+          window.originalBackgroundMusic.paused
+        ) {
+          window.originalBackgroundMusic
+            .play()
+            .then(() => {
+              window.backgroundMusic = window.originalBackgroundMusic!;
+              window.originalBackgroundMusic = null;
+            })
+            .catch(console.warn);
+        } else if (window.backgroundMusic && window.backgroundMusic.paused) {
+          window.backgroundMusic.play().catch(console.warn);
+        }
       }
     };
 
@@ -122,7 +132,6 @@ function AppContent() {
     };
   }, []);
 
-  // Handle M key to toggle mute
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === "m" && !videoIsPlaying) {
@@ -153,7 +162,6 @@ function AppContent() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <div className="dark min-h-screen relative">
-          {/* Mute/Unmute Button */}
           <button
             onClick={toggleMute}
             disabled={videoIsPlaying}
@@ -161,11 +169,7 @@ function AppContent() {
               videoIsPlaying ? "opacity-50 cursor-not-allowed" : "hover:bg-white/10"
             }`}
             title={
-              videoIsPlaying
-                ? "Disabled while video is playing"
-                : isMuted
-                ? "Unmute"
-                : "Mute"
+              videoIsPlaying ? "Disabled while video is playing" : isMuted ? "Unmute" : "Mute"
             }
           >
             <span className="material-icons">
@@ -184,7 +188,6 @@ function AppContent() {
   );
 }
 
-// 💡 Main App wrapper
 function App() {
   const [entered, setEntered] = useState(false);
 

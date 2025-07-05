@@ -5,6 +5,15 @@ import { useQuery } from "@tanstack/react-query";
 import type { Project } from "@shared/schema";
 import { getProjects } from "../lib/data";
 
+// 👇 Global declarations
+declare global {
+  interface Window {
+    backgroundMusic: HTMLAudioElement | null;
+    videoIsPlaying?: boolean;
+    originalBackgroundMusic?: HTMLAudioElement | null;
+  }
+}
+
 function getThumbnailFromUrl(url: string | null, fallback: string): string {
   if (!url) return fallback;
   const cleanedUrl = url.split("?")[0];
@@ -28,85 +37,241 @@ function getYouTubeId(url: string): string | null {
   }
 }
 
-declare global {
-  interface Window {
-    backgroundMusic: HTMLAudioElement | null;
-    videoIsPlaying?: boolean;
-  }
-}
-
 export default function PortfolioSection() {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const isInView = useInView(ref, { once: false, margin: "-100px" });
 
   const [playingVideoId, setPlayingVideoId] = useState<number | null>(null);
+  const [playingYouTubeId, setPlayingYouTubeId] = useState<number | null>(null);
   const [videoEnded, setVideoEnded] = useState<{ [id: number]: boolean }>({});
+  const [timeProgress, setTimeProgress] = useState<number>(0);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const youtubeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["projects"],
     queryFn: getProjects,
   });
 
-  // 👇 Add this new effect here
-useEffect(() => {
-  const observer = new IntersectionObserver(
-    ([entry]) => {
-      if (!entry.isIntersecting) {
-        setPlayingVideoId(null);
-        setVideoEnded({});
-        window.videoIsPlaying = false;
-
-        // 🔥 Dispatch to notify App.tsx to re-enable mute button
-        window.dispatchEvent(new CustomEvent("video-playing", { detail: false }));
-
-        if (window.backgroundMusic && window.backgroundMusic.paused) {
-          window.backgroundMusic.play().catch(console.warn);
-        }
-      }
-    },
-    { threshold: 0.1 }
-  );
-
-  const node = ref.current;
-  if (node) observer.observe(node);
-
-  return () => {
-    if (node) observer.unobserve(node);
+  const resumeBackgroundMusic = () => {
+    if (
+      window.originalBackgroundMusic &&
+      window.originalBackgroundMusic.paused
+    ) {
+      window.originalBackgroundMusic
+        .play()
+        .then(() => {
+          window.backgroundMusic = window.originalBackgroundMusic!;
+          window.originalBackgroundMusic = null;
+          console.log("🎵 Background music resumed");
+        })
+        .catch((err) => {
+          console.warn("🔇 Failed to resume background music", err);
+        });
+    }
   };
-}, []);
 
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) {
+          if (youtubeTimeoutRef.current)
+            clearTimeout(youtubeTimeoutRef.current);
 
-const handlePlay = (projectId: number) => {
-  setPlayingVideoId(projectId);
-  setVideoEnded((prev) => ({ ...prev, [projectId]: false }));
-  window.videoIsPlaying = true;
+          // MP3 Fade out
+          if (
+            playingVideoId !== null &&
+            window.backgroundMusic &&
+            window.backgroundMusic !== window.originalBackgroundMusic
+          ) {
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
+            }
 
-  if (window.backgroundMusic && !window.backgroundMusic.paused) {
-    window.backgroundMusic.pause();
-  }
+            const fadeOutAudio = () => {
+              let vol = window.backgroundMusic!.volume;
+              const fadeStep = 0.05;
+              const fadeInterval = setInterval(() => {
+                if (window.backgroundMusic && vol > 0) {
+                  vol = Math.max(0, vol - fadeStep);
+                  window.backgroundMusic.volume = vol;
+                } else {
+                  clearInterval(fadeInterval);
+                  if (window.backgroundMusic) {
+                    window.backgroundMusic.pause();
+                    window.backgroundMusic.currentTime = 0;
+                    window.backgroundMusic = null;
+                  }
 
-  // 🔥 Notify App
-  window.dispatchEvent(new CustomEvent("video-playing", { detail: true }));
+                  setPlayingVideoId(null);
+                  setVideoEnded({});
+                  setTimeProgress(0);
+                  window.videoIsPlaying = false;
+                  window.dispatchEvent(
+                    new CustomEvent("video-playing", { detail: false })
+                  );
 
-  setTimeout(() => {
-    if (playingVideoId === projectId) handleVideoEnd(projectId);
-  }, 60000);
-};
+                  setTimeout(() => resumeBackgroundMusic(), 300);
+                }
+              }, 50);
+            };
 
-const handleVideoEnd = (projectId: number) => {
-  setVideoEnded((prev) => ({ ...prev, [projectId]: true }));
-  setPlayingVideoId(null);
-  window.videoIsPlaying = false;
+            fadeOutAudio();
+          }
 
-  if (window.backgroundMusic) {
-    window.backgroundMusic.play().catch(console.warn);
-  }
+          // YouTube Stop
+          if (playingYouTubeId !== null) {
+            setPlayingYouTubeId(null);
+            setPlayingVideoId(null);
+            setVideoEnded({});
+            setTimeProgress(0);
+            window.videoIsPlaying = false;
+            window.dispatchEvent(
+              new CustomEvent("video-playing", { detail: false })
+            );
 
-  // 🔥 Notify App
-  window.dispatchEvent(new CustomEvent("video-playing", { detail: false }));
-};
+            // Resume bg music after delay
+            setTimeout(() => resumeBackgroundMusic(), 300);
+          }
+        } else {
+          if (playingVideoId !== null && !window.videoIsPlaying) {
+            setTimeProgress(0);
+          }
+        }
+      },
+      { threshold: 0.1 }
+    );
 
+    const node = ref.current;
+    if (node) observer.observe(node);
+    return () => {
+      if (node) observer.unobserve(node);
+    };
+  }, [playingVideoId, playingYouTubeId]);
 
+  const handleMP3Play = (projectId: number, audioUrl: string) => {
+    if (
+      window.backgroundMusic &&
+      !window.backgroundMusic.paused &&
+      !window.originalBackgroundMusic
+    ) {
+      window.originalBackgroundMusic = window.backgroundMusic;
+    }
+
+    if (window.backgroundMusic) {
+      window.backgroundMusic.pause();
+      window.backgroundMusic.currentTime = 0;
+    }
+
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    const audio = new Audio(audioUrl);
+    audio.volume = 1;
+
+    audio.onerror = (e) => {
+      console.error("❌ Failed to load or play audio:", audioUrl, e.toString());
+    };
+
+    audio.play().catch((err) => {
+      console.warn("⚠️ Audio play() failed:", err);
+    });
+    window.backgroundMusic = audio;
+
+    setPlayingVideoId(projectId);
+    setPlayingYouTubeId(null);
+    setVideoEnded((prev) => ({ ...prev, [projectId]: false }));
+    setTimeProgress(0);
+    window.videoIsPlaying = true;
+    window.dispatchEvent(new CustomEvent("video-playing", { detail: true }));
+
+    const totalDuration = 60;
+    const fadeOutDuration = 5;
+    let elapsed = 0;
+
+    intervalRef.current = setInterval(() => {
+      elapsed += 1;
+      const percent = (elapsed / totalDuration) * 100;
+      setTimeProgress(percent);
+
+      const timeLeft = totalDuration - elapsed;
+      if (timeLeft <= fadeOutDuration && audio.volume > 0) {
+        const newVolume = Math.max(0, timeLeft / fadeOutDuration);
+        audio.volume = newVolume;
+      }
+
+      if (elapsed >= totalDuration) {
+        clearInterval(intervalRef.current!);
+        audio.pause();
+        audio.currentTime = 0;
+        handleMP3Pause(projectId);
+      }
+    }, 1000);
+
+    audio.onended = () => handleMP3Pause(projectId);
+  };
+
+  const handleMP3Pause = (projectId: number) => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (window.backgroundMusic) {
+      window.backgroundMusic.pause();
+      window.backgroundMusic.currentTime = 0;
+      window.backgroundMusic.volume = 1;
+      window.backgroundMusic = null;
+    }
+
+    setPlayingVideoId(null);
+    setVideoEnded((prev) => ({ ...prev, [projectId]: true }));
+    setTimeProgress(0);
+    window.videoIsPlaying = false;
+
+    resumeBackgroundMusic();
+    window.dispatchEvent(new CustomEvent("video-playing", { detail: false }));
+  };
+
+  const handleYouTubePlay = (projectId: number) => {
+    // Save current background music if playing
+    if (
+      window.backgroundMusic &&
+      !window.backgroundMusic.paused &&
+      !window.originalBackgroundMusic
+    ) {
+      window.originalBackgroundMusic = window.backgroundMusic;
+    }
+
+    if (window.backgroundMusic) {
+      window.backgroundMusic.pause();
+      window.backgroundMusic.currentTime = 0;
+      window.backgroundMusic = null;
+    }
+
+    if (youtubeTimeoutRef.current) {
+      clearTimeout(youtubeTimeoutRef.current);
+    }
+
+    setPlayingVideoId(null);
+    setPlayingYouTubeId(projectId);
+    setTimeProgress(0);
+    window.videoIsPlaying = true;
+    window.dispatchEvent(new CustomEvent("video-playing", { detail: true }));
+
+    // ⏳ Stop YouTube after 1 min and resume BG music
+    youtubeTimeoutRef.current = setTimeout(() => {
+      setPlayingYouTubeId(null);
+      setPlayingVideoId(null);
+      setVideoEnded((prev) => ({ ...prev, [projectId]: true }));
+      setTimeProgress(0);
+      window.videoIsPlaying = false;
+      window.dispatchEvent(new CustomEvent("video-playing", { detail: false }));
+      resumeBackgroundMusic();
+    }, 60 * 1000); // 1 minute
+  };
 
   return (
     <section id="portfolio" className="py-20 px-6 bg-darker-gray">
@@ -139,9 +304,9 @@ const handleVideoEnd = (projectId: number) => {
             const isYouTube = project.url?.includes("youtu");
             const isMP3 = project.url?.includes(".mp3");
             const ytId = getYouTubeId(project.url ?? "");
-
             const isPlaying =
               playingVideoId === project.id && !videoEnded[project.id];
+            const isYouTubePlaying = playingYouTubeId === project.id;
 
             return (
               <motion.div
@@ -153,8 +318,7 @@ const handleVideoEnd = (projectId: number) => {
                 }}
               >
                 <div className="glass rounded-2xl overflow-hidden relative">
-                  {/* YouTube iframe */}
-                  {isYouTube && isPlaying ? (
+                  {isYouTube && isYouTubePlaying ? (
                     <iframe
                       className="w-full h-64"
                       src={`https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1`}
@@ -162,10 +326,6 @@ const handleVideoEnd = (projectId: number) => {
                       frameBorder="0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
-                      onLoad={() => {
-                        // fallback in case onEnd isn't triggered
-                        setTimeout(() => handleVideoEnd(project.id), 60000);
-                      }}
                     />
                   ) : (
                     <>
@@ -175,34 +335,52 @@ const handleVideoEnd = (projectId: number) => {
                         className="w-full h-64 object-cover"
                       />
 
-                      {/* Play Button */}
-                      {isYouTube && playingVideoId !== project.id && (
+                      {isYouTube && (
                         <motion.button
-                          onClick={() => handlePlay(project.id)}
+                          onClick={() => handleYouTubePlay(project.id)}
                           className="absolute bottom-4 left-4 z-10 px-3 py-1.5 bg-electric-purple text-white rounded-full"
                           whileHover={{ scale: 1.05 }}
+                          onMouseEnter={() => setHoveredId(project.id)}
+                          onMouseLeave={() => setHoveredId(null)}
                         >
                           <span className="material-icons text-sm align-middle">
                             play_arrow
                           </span>{" "}
-                          1 Min
+                          {hoveredId === project.id ? "Watch" : "1 Min"}
                         </motion.button>
                       )}
 
-                      {/* MP3 Listen Button */}
                       {isMP3 && (
-                        <motion.a
-                          href={project.url ?? "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="absolute bottom-4 left-4 z-10 px-3 py-1.5 bg-electric-purple text-white rounded-full"
-                          whileHover={{ scale: 1.05 }}
-                        >
-                          <span className="material-icons text-sm align-middle">
-                            volume_up
-                          </span>{" "}
-                          Listen
-                        </motion.a>
+                        <>
+                          {isPlaying ? (
+                            <motion.div
+                              className="absolute bottom-4 left-4 right-4 bg-white/20 rounded-full h-2 overflow-hidden"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                            >
+                              <motion.div
+                                className="bg-white h-full"
+                                animate={{ width: `${timeProgress}%` }}
+                                transition={{ duration: 0.3, ease: "easeOut" }}
+                              />
+                            </motion.div>
+                          ) : (
+                            <motion.button
+                              onClick={() =>
+                                handleMP3Play(project.id, project.url!)
+                              }
+                              className="absolute bottom-4 left-4 z-10 px-3 py-1.5 bg-electric-purple text-white rounded-full"
+                              whileHover={{ scale: 1.05 }}
+                              onMouseEnter={() => setHoveredId(project.id)}
+                              onMouseLeave={() => setHoveredId(null)}
+                            >
+                              <span className="material-icons text-sm align-middle">
+                                volume_up
+                              </span>{" "}
+                              {hoveredId === project.id ? "Listen" : "1 Min"}
+                            </motion.button>
+                          )}
+                        </>
                       )}
                     </>
                   )}
